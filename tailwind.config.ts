@@ -11,16 +11,31 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#3B82F6',
-          dark: '#2563EB',
+          DEFAULT: '#FFB6C1',
+          dark: '#FF91A4',
+          light: '#FFE4E1',
         },
         secondary: {
-          DEFAULT: '#10B981',
-          dark: '#34D399',
+          DEFAULT: '#B0E0E6',
+          dark: '#87CEEB',
+          light: '#E0F6FF',
         },
         accent: {
-          DEFAULT: '#F59E0B',
-          dark: '#FBBF24',
+          DEFAULT: '#FFCCCB',
+          dark: '#FFB6B9',
+          light: '#FFEFD5',
+        },
+        pastel: {
+          50: '#F0F8FF',
+          100: '#E6F3FF',
+          200: '#CCE7FF',
+          300: '#B0E0E6',
+          400: '#87CEEB',
+          500: '#7EC8E3',
+          600: '#5FA8D0',
+          700: '#4A90C2',
+          800: '#2E5C8A',
+          900: '#1E3A5F',
         },
       },
       fontFamily: {

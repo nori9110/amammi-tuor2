@@ -14,19 +14,19 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
     return (
       <div ref={ref} className={cn('w-full', className)} {...props}>
         {showLabel && (
-          <div className="mb-2 flex justify-between text-sm text-gray-600 dark:text-gray-400">
+          <div className="mb-2 flex justify-between text-sm text-pastel-900 dark:text-pastel-50">
             <span>進捗</span>
             <span>{value} / {max}</span>
           </div>
         )}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-pastel-200/60 dark:bg-pastel-700/60">
           <div
-            className="h-full bg-primary transition-all duration-300"
+            className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300 shadow-sm"
             style={{ width: `${percentage}%` }}
           />
         </div>
         {showLabel && (
-          <div className="mt-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="mt-2 text-right text-sm font-medium text-pastel-900 dark:text-pastel-50">
             {percentage.toFixed(0)}%
           </div>
         )}
