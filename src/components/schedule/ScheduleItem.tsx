@@ -14,7 +14,17 @@ interface ScheduleItemProps {
 }
 
 export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
+  const [localChecked, setLocalChecked] = React.useState(item.checked);
+
+  // item.checkedが変更されたら（親から更新された場合）ローカル状態を同期
+  React.useEffect(() => {
+    setLocalChecked(item.checked);
+  }, [item.checked]);
+
   const handleCheckedChange = async (checked: boolean) => {
+    // 即座にローカル状態を更新（楽観的更新）
+    setLocalChecked(checked);
+    
     try {
       await updateScheduleItemChecked(item.id, checked);
       if (onCheckedChange) {
@@ -22,7 +32,9 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
       }
     } catch (error) {
       console.error('Failed to update check status:', error);
-      // エラーが発生してもコールバックを呼ぶ（ローカルでは更新済み）
+      // エラー時は元の状態に戻す
+      setLocalChecked(item.checked);
+      // エラーが発生してもコールバックを呼ぶ（再同期のため）
       if (onCheckedChange) {
         onCheckedChange();
       }
@@ -32,7 +44,7 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
   return (
     <div
       className={`p-4 rounded-lg border transition-all ${
-        item.checked
+        localChecked
           ? 'bg-pastel-100/60 dark:bg-pastel-800/40 opacity-70'
           : 'bg-gradient-to-br from-pastel-50/80 to-white dark:from-pastel-800/70 dark:to-pastel-900/90 shadow-sm shadow-pastel-200/10 dark:shadow-pastel-900/30'
       } border-pastel-300/60 dark:border-pastel-500/60 hover:border-pastel-300/80 dark:hover:border-pastel-600/80`}
@@ -40,7 +52,7 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
       <div className="flex items-start gap-3">
         <div className="mt-1">
           <Checkbox
-            checked={item.checked}
+            checked={localChecked}
             onChange={(e) => handleCheckedChange(e.target.checked)}
             id={`checkbox-${item.id}`}
           />
@@ -52,7 +64,7 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
             </span>
             <span
               className={`text-base ${
-                item.checked
+                localChecked
                   ? 'line-through text-pastel-800 dark:text-pastel-700'
                   : 'text-pastel-800 dark:text-pastel-200'
               }`}
