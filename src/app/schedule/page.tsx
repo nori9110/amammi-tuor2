@@ -6,6 +6,8 @@ import { initialScheduleData } from '@/lib/data';
 import { loadScheduleDataSync, saveScheduleDataToLocalStorage } from '@/lib/storage';
 import { ScheduleData } from '@/types';
 import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Info } from 'lucide-react';
 
 export default function SchedulePage() {
   const [scheduleData, setScheduleData] = React.useState<ScheduleData>(initialScheduleData);
@@ -14,23 +16,23 @@ export default function SchedulePage() {
     // LocalStorageからデータを読み込む（各ブラウザで個別に保存されたチェック状態）
     const loadData = () => {
       const saved = loadScheduleDataSync();
-      if (saved) {
+    if (saved) {
         // 保存データが古い（項目数が少ない等）場合は初期データとマージ
-        const savedTotalItems = saved.schedule.reduce((sum, d) => sum + d.items.length, 0);
-        const initialTotalItems = initialScheduleData.schedule.reduce((sum, d) => sum + d.items.length, 0);
+      const savedTotalItems = saved.schedule.reduce((sum, d) => sum + d.items.length, 0);
+      const initialTotalItems = initialScheduleData.schedule.reduce((sum, d) => sum + d.items.length, 0);
 
-        if (!('lastUpdated' in saved) || savedTotalItems < initialTotalItems) {
+      if (!('lastUpdated' in saved) || savedTotalItems < initialTotalItems) {
           // 初期データを使用（チェック状態は初期化）
-          setScheduleData(initialScheduleData);
+        setScheduleData(initialScheduleData);
           saveScheduleDataToLocalStorage(initialScheduleData);
-        } else {
-          setScheduleData(saved);
-        }
       } else {
-        // 初期データを保存
+        setScheduleData(saved);
+      }
+    } else {
+      // 初期データを保存
         setScheduleData(initialScheduleData);
         saveScheduleDataToLocalStorage(initialScheduleData);
-      }
+    }
     };
     loadData();
   }, []);
@@ -94,6 +96,31 @@ export default function SchedulePage() {
           全体リセット
         </Button>
       </div>
+
+      {/* チェックボックスの利用方法 */}
+      <Card className="border-blue-300 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/20">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                チェックボックスの利用方法
+              </p>
+              <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                <p>
+                  WEBページのツアー日程のチェックボックスは個人での利用となるので、利用者間で共有はできていませんので、自身のメモとして利用してください。
+                </p>
+                <p>
+                  チェック状態を戻す場合は、ツアー日程の「全体リセット」をクリックすれば全て解除されます。
+                </p>
+                <p>
+                  個別でチェックを外すことも可能です。
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 日程表示 */}
       <div className="space-y-8">

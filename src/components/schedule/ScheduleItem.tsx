@@ -29,8 +29,8 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
       // LocalStorageに保存
       await updateScheduleItemChecked(item.id, checked);
       // 親コンポーネントに通知（進捗バーの更新など）
-      if (onCheckedChange) {
-        onCheckedChange();
+    if (onCheckedChange) {
+      onCheckedChange();
       }
     } catch (error) {
       console.error('Failed to update check status:', error);

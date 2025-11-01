@@ -15,8 +15,8 @@ export function ProgressSection() {
     const loadData = () => {
       try {
         const saved = loadScheduleDataSync();
-        const data = saved || initialScheduleData;
-        const prog = calculateProgress(data);
+    const data = saved || initialScheduleData;
+    const prog = calculateProgress(data);
         // 進捗データが正しく計算されていることを確認
         if (prog.total > 0 || prog.completed === 0) {
           setProgress(prog);
@@ -29,7 +29,7 @@ export function ProgressSection() {
         console.error('Failed to load schedule data:', error);
         // エラー時は初期データで進捗を計算
         const prog = calculateProgress(initialScheduleData);
-        setProgress(prog);
+    setProgress(prog);
       }
     };
     loadData();
