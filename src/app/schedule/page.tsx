@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ScheduleDate } from '@/components/schedule/ScheduleDate';
 import { initialScheduleData } from '@/lib/data';
-import { loadScheduleData, saveScheduleData, resetAllScheduleItems, calculateProgress } from '@/lib/storage';
+import { loadScheduleData, saveScheduleData, resetAllScheduleItems, calculateProgress, loadScheduleDataSync } from '@/lib/storage';
 import { ScheduleData } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
@@ -13,24 +13,27 @@ export default function SchedulePage() {
   const [progress, setProgress] = React.useState({ completed: 0, total: 0 });
 
   React.useEffect(() => {
-    // LocalStorageからデータを読み込む
-    const saved = loadScheduleData();
-    if (saved) {
-      // 保存データが古い（項目数が少ない等）場合は初期データに更新
-      const savedTotalItems = saved.schedule.reduce((sum, d) => sum + d.items.length, 0);
-      const initialTotalItems = initialScheduleData.schedule.reduce((sum, d) => sum + d.items.length, 0);
+    // APIからデータを読み込む（フォールバックはLocalStorage）
+    const loadData = async () => {
+      const saved = await loadScheduleData();
+      if (saved) {
+        // 保存データが古い（項目数が少ない等）場合は初期データに更新
+        const savedTotalItems = saved.schedule.reduce((sum, d) => sum + d.items.length, 0);
+        const initialTotalItems = initialScheduleData.schedule.reduce((sum, d) => sum + d.items.length, 0);
 
-      // lastUpdated が存在しない or 項目数が少ない場合は上書き保存
-      if (!('lastUpdated' in saved) || savedTotalItems < initialTotalItems) {
-        saveScheduleData(initialScheduleData);
-        setScheduleData(initialScheduleData);
+        // lastUpdated が存在しない or 項目数が少ない場合は上書き保存
+        if (!('lastUpdated' in saved) || savedTotalItems < initialTotalItems) {
+          await saveScheduleData(initialScheduleData);
+          setScheduleData(initialScheduleData);
+        } else {
+          setScheduleData(saved);
+        }
       } else {
-        setScheduleData(saved);
+        // 初期データを保存
+        await saveScheduleData(initialScheduleData);
       }
-    } else {
-      // 初期データを保存
-      saveScheduleData(initialScheduleData);
-    }
+    };
+    loadData();
   }, []);
 
   React.useEffect(() => {
@@ -39,20 +42,29 @@ export default function SchedulePage() {
     setProgress(prog);
   }, [scheduleData]);
 
-  const handleItemChange = () => {
-    // チェック状態が変更されたら再読み込み
-    const saved = loadScheduleData();
+  const handleItemChange = async () => {
+    // チェック状態が変更されたら再読み込み（同期版を使用して即座に反映）
+    const saved = loadScheduleDataSync();
     if (saved) {
       setScheduleData({ ...saved });
     }
+    // バックグラウンドでAPIから最新データを取得
+    try {
+      const latest = await loadScheduleData();
+      if (latest) {
+        setScheduleData(latest);
+      }
+    } catch (error) {
+      console.warn('Failed to sync latest data:', error);
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (confirm('全ての進捗をリセットしますか？')) {
-      resetAllScheduleItems();
-      const saved = loadScheduleData();
+      await resetAllScheduleItems();
+      const saved = await loadScheduleData();
       if (saved) {
-        setScheduleData({ ...saved });
+        setScheduleData(saved);
       }
     }
   };

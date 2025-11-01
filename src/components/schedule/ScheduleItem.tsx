@@ -14,10 +14,18 @@ interface ScheduleItemProps {
 }
 
 export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
-  const handleCheckedChange = (checked: boolean) => {
-    updateScheduleItemChecked(item.id, checked);
-    if (onCheckedChange) {
-      onCheckedChange();
+  const handleCheckedChange = async (checked: boolean) => {
+    try {
+      await updateScheduleItemChecked(item.id, checked);
+      if (onCheckedChange) {
+        onCheckedChange();
+      }
+    } catch (error) {
+      console.error('Failed to update check status:', error);
+      // エラーが発生してもコールバックを呼ぶ（ローカルでは更新済み）
+      if (onCheckedChange) {
+        onCheckedChange();
+      }
     }
   };
 

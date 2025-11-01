@@ -7,7 +7,7 @@ import { Markers, extractLocationPoints } from '@/components/map/Markers';
 import { RouteSearch } from '@/components/map/RouteSearch';
 import { LocationAutoCorrect } from '@/components/map/LocationAutoCorrect';
 import { PlaceSearch } from '@/components/map/PlaceSearch';
-import { loadScheduleData, saveScheduleData } from '@/lib/storage';
+import { loadScheduleData, saveScheduleData, loadScheduleDataSync } from '@/lib/storage';
 import { initialScheduleData } from '@/lib/data';
 
 export default function MapPage() {
@@ -18,18 +18,21 @@ export default function MapPage() {
   const [mapInstance, setMapInstance] = React.useState<google.maps.Map | null>(null);
 
   React.useEffect(() => {
-    const saved = loadScheduleData();
-    if (!saved) {
-      // 初回は初期データを保存して以降の更新が永続化されるようにする
-      saveScheduleData(initialScheduleData);
-      setPoints(extractLocationPoints(initialScheduleData));
-    } else {
-      setPoints(extractLocationPoints(saved));
-    }
+    const loadData = async () => {
+      const saved = await loadScheduleData();
+      if (!saved) {
+        // 初回は初期データを保存して以降の更新が永続化されるようにする
+        await saveScheduleData(initialScheduleData);
+        setPoints(extractLocationPoints(initialScheduleData));
+      } else {
+        setPoints(extractLocationPoints(saved));
+      }
+    };
+    loadData();
 
     // スケジュール更新イベントでポイントを再読込
     const onUpdated = () => {
-      const latest = loadScheduleData();
+      const latest = loadScheduleDataSync();
       if (latest) setPoints(extractLocationPoints(latest));
     };
     if (typeof window !== 'undefined') {
