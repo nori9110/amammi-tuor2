@@ -3,7 +3,6 @@ import {
   fetchScheduleData,
   updateScheduleData,
   updateScheduleItemChecked as updateScheduleItemCheckedApi,
-  resetAllScheduleItems as resetAllScheduleItemsApi,
   isOnline,
   ApiError,
 } from './api-sync';
@@ -122,44 +121,35 @@ export async function saveScheduleData(data: ScheduleData): Promise<void> {
   }
 }
 
-// スケジュールデータの読み込み（API優先、フォールバックはLocalStorage、マージ処理と自動チェックを実行）
+// スケジュールデータの読み込み（API優先、フォールバックはLocalStorage）
+// 注意: チェックボックスは各ブラウザで個別管理のため、自動チェックは実行しない
 export async function loadScheduleData(): Promise<ScheduleData | null> {
   const localData = loadScheduleDataFromLocalStorage();
   
-  // オンラインの場合はAPIから取得を試行
+  // オンラインの場合はAPIから取得を試行（位置情報などの更新情報のみ）
+  // チェック状態はLocalStorageを優先（各ブラウザで個別管理）
   if (isOnline()) {
     try {
       const apiData = await fetchScheduleData();
-      if (apiData) {
-        // LocalStorageとAPIデータをマージ
-        let mergedData: ScheduleData;
-        if (localData) {
-          mergedData = mergeScheduleData(localData, apiData);
-        } else {
-          mergedData = apiData;
-        }
-        
-        // 自動チェックを実行（日時が経過していれば自動的にON）
-        mergedData = autoCheckScheduleItems(mergedData);
-        
+      if (apiData && localData) {
+        // LocalStorageとAPIデータをマージ（チェック状態はLocalStorage優先）
+        const mergedData = mergeScheduleData(localData, apiData);
+        // 自動チェックは実行しない（手動チェックのみ）
         saveScheduleDataToLocalStorage(mergedData);
         return mergedData;
+      } else if (apiData && !localData) {
+        // LocalStorageにデータがない場合のみAPIデータを使用
+        saveScheduleDataToLocalStorage(apiData);
+        return apiData;
       }
     } catch (error) {
       console.warn('Failed to fetch from API, falling back to localStorage:', error);
     }
   }
 
-  // オフラインまたはAPI失敗時はLocalStorageから取得して自動チェックを実行
-  if (localData) {
-    const autoCheckedData = autoCheckScheduleItems(localData);
-    if (autoCheckedData !== localData) {
-      saveScheduleDataToLocalStorage(autoCheckedData);
-    }
-    return autoCheckedData;
-  }
-  
-  return null;
+  // オフラインまたはAPI失敗時はLocalStorageから取得
+  // 自動チェックは実行しない（手動チェックのみ）
+  return localData;
 }
 
 // 同期なしでLocalStorageから読み込み（各ブラウザで個別に保存されたデータ）
@@ -307,22 +297,15 @@ export async function resetAllScheduleItems(): Promise<void> {
   }
   data.lastUpdated = new Date().toISOString();
   
-  // まずLocalStorageに保存
+  // LocalStorageに保存（各ブラウザで個別管理のため、APIには同期しない）
   saveScheduleDataToLocalStorage(data);
-
-  // オンラインの場合はAPIに同期
-  if (isOnline()) {
-    try {
-      await resetAllScheduleItemsApi();
-      // 成功したら最新データを取得
-      const latestData = await fetchScheduleData();
-      if (latestData) {
-        saveScheduleDataToLocalStorage(latestData);
-      }
-    } catch (error) {
-      console.warn('Failed to sync reset to API:', error);
+  
+  // データ更新を通知
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('schedule-updated'));
     }
-  }
+  } catch {}
 }
 
 // 進捗率の計算
