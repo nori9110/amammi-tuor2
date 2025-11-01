@@ -9,7 +9,8 @@ export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   ({ className, value, max = 100, showLabel = true, ...props }, ref) => {
-    const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+    // maxが0の場合は0%を表示（0で割ることを防ぐ）
+    const percentage = max === 0 ? 0 : Math.min(Math.max((value / max) * 100, 0), 100);
 
     return (
       <div ref={ref} className={cn('w-full', className)} {...props}>

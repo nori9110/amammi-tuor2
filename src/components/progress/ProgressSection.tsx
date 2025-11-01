@@ -11,12 +11,26 @@ export function ProgressSection() {
   const [progress, setProgress] = React.useState({ completed: 0, total: 0 });
 
   React.useEffect(() => {
-    // LocalStorageからデータを読み込んで進捗を計算（マージ済みデータを使用）
+    // LocalStorageからデータを読み込んで進捗を計算
     const loadData = async () => {
-      const saved = await loadScheduleData(); // 既にマージ処理を含んでいる
-    const data = saved || initialScheduleData;
-    const prog = calculateProgress(data);
-    setProgress(prog);
+      try {
+        const saved = await loadScheduleData();
+        const data = saved || initialScheduleData;
+        const prog = calculateProgress(data);
+        // 進捗データが正しく計算されていることを確認
+        if (prog.total > 0 || prog.completed === 0) {
+          setProgress(prog);
+        } else {
+          // フォールバック: 初期データで進捗を計算
+          const fallbackProg = calculateProgress(initialScheduleData);
+          setProgress(fallbackProg);
+        }
+      } catch (error) {
+        console.error('Failed to load schedule data:', error);
+        // エラー時は初期データで進捗を計算
+        const prog = calculateProgress(initialScheduleData);
+        setProgress(prog);
+      }
     };
     loadData();
   }, []);
@@ -27,6 +41,12 @@ export function ProgressSection() {
       const saved = loadScheduleDataSync();
       if (saved) {
         const prog = calculateProgress(saved);
+        if (prog.total > 0 || prog.completed === 0) {
+          setProgress(prog);
+        }
+      } else {
+        // LocalStorageにデータがない場合は初期データを使用
+        const prog = calculateProgress(initialScheduleData);
         setProgress(prog);
       }
     };
@@ -35,6 +55,12 @@ export function ProgressSection() {
       const saved = loadScheduleDataSync();
       if (saved) {
         const prog = calculateProgress(saved);
+        if (prog.total > 0 || prog.completed === 0) {
+          setProgress(prog);
+        }
+      } else {
+        // LocalStorageにデータがない場合は初期データを使用
+        const prog = calculateProgress(initialScheduleData);
         setProgress(prog);
       }
     };
