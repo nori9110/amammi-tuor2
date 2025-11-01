@@ -146,27 +146,33 @@ export default function SchedulePage() {
 
   const handleItemChange = async () => {
     // チェック状態が変更されたら再読み込み（同期版を使用して即座に反映）
+    // updateScheduleItemChecked内で既にマージ処理が完了しているため、
+    // LocalStorageから最新データを読み込むだけで良い
     const saved = loadScheduleDataSync();
     if (saved) {
       setScheduleData({ ...saved });
     }
     // バックグラウンドでAPIから最新データを取得し、現在のデータとマージ
-    // （自分の変更を優先するため、即座に上書きしない）
-    try {
-      const latest = await loadScheduleData();
-      if (latest && saved) {
-        // 現在のLocalStorageデータとAPIデータをマージ（LocalStorageのチェック状態を優先）
-        const merged = mergeScheduleData(saved, latest);
-        setScheduleData(merged);
-        // LocalStorageにも保存
-        saveScheduleDataToLocalStorage(merged);
-      } else if (latest) {
-        // savedがない場合は最新データをそのまま使用
-        setScheduleData(latest);
+    // （他の端末からの更新も反映するため）
+    // 少し待ってから取得することで、API側の反映を待つ
+    setTimeout(async () => {
+      try {
+        const saved = loadScheduleDataSync();
+        const latest = await loadScheduleData();
+        if (latest && saved) {
+          // 現在のLocalStorageデータとAPIデータをマージ（全てのチェック状態を保持）
+          const merged = mergeScheduleData(saved, latest);
+          setScheduleData(merged);
+          // LocalStorageにも保存
+          saveScheduleDataToLocalStorage(merged);
+        } else if (latest) {
+          // savedがない場合は最新データをそのまま使用
+          setScheduleData(latest);
+        }
+      } catch (error) {
+        console.warn('Failed to sync latest data:', error);
       }
-    } catch (error) {
-      console.warn('Failed to sync latest data:', error);
-    }
+    }, 200); // 200ms後に実行（API側の反映を待つ）
   };
 
   const handleReset = async () => {

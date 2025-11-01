@@ -91,39 +91,56 @@ export function loadScheduleDataSync(): ScheduleData | null {
   return loadScheduleDataFromLocalStorage();
 }
 
-// データマージ関数: LocalStorageの変更を優先して、APIデータとマージ
+// データマージ関数: 全てのチェック状態を保持し、より新しい方を優先してマージ
 export function mergeScheduleData(
   localData: ScheduleData,
   apiData: ScheduleData
 ): ScheduleData {
-  // APIデータをベースにコピー
+  const localTime = new Date(localData.lastUpdated).getTime();
+  const apiTime = new Date(apiData.lastUpdated).getTime();
+  
+  // APIデータをベースにコピー（APIデータには既に全てのチェック状態が含まれている）
   const merged: ScheduleData = {
     ...apiData,
-    schedule: apiData.schedule.map(date => ({
-      ...date,
-      items: date.items.map(apiItem => {
-        // LocalStorageの対応するアイテムを探す
-        const localDate = localData.schedule.find(d => d.date === date.date);
-        const localItem = localDate?.items.find(i => i.id === apiItem.id);
-        
-        // LocalStorageにアイテムがあり、より新しい場合はLocalStorageの値を優先
-        if (localItem) {
-          // チェック状態はLocalStorageを優先（ユーザーが操作した変更を保持）
-          // その他の情報（位置情報など）はAPIデータを優先
-          return {
-            ...apiItem,
-            checked: localItem.checked,
-          };
-        }
-        
-        return apiItem;
-      }),
-    })),
+    schedule: apiData.schedule.map(date => {
+      // LocalStorageの対応する日付を探す
+      const localDate = localData.schedule.find(d => d.date === date.date);
+      
+      return {
+        ...date,
+        items: date.items.map(apiItem => {
+          // LocalStorageの対応するアイテムを探す
+          const localItem = localDate?.items.find(i => i.id === apiItem.id);
+          
+          if (localItem) {
+            // 両方のデータがある場合
+            // チェック状態: より新しいlastUpdatedを持つデータソースの値を優先
+            // これにより、全てのチェック状態が保持される
+            let checkedValue = apiItem.checked;
+            if (localTime > apiTime) {
+              // LocalStorageがより新しい場合は、LocalStorageの値を優先
+              // これにより、ユーザーが操作した直後のチェック状態が保持される
+              checkedValue = localItem.checked;
+            }
+            // apiTime >= localTime の場合は、APIの値をそのまま使用
+            // これにより、API側で他のアイテムがチェックされている場合も保持される
+            
+            // その他の情報（位置情報など）はAPIデータを優先
+            return {
+              ...apiItem,
+              checked: checkedValue,
+            };
+          }
+          
+          // LocalStorageにアイテムがない場合は、APIデータをそのまま使用
+          // これにより、API側でチェックされたアイテムも保持される
+          return apiItem;
+        }),
+      };
+    }),
   };
   
   // lastUpdatedはより新しい方を採用
-  const localTime = new Date(localData.lastUpdated).getTime();
-  const apiTime = new Date(apiData.lastUpdated).getTime();
   merged.lastUpdated = localTime > apiTime ? localData.lastUpdated : apiData.lastUpdated;
   
   return merged;
@@ -141,6 +158,7 @@ export async function updateScheduleItemChecked(
   for (const date of data.schedule) {
     const item = date.items.find((i) => i.id === itemId);
     if (item) {
+      // チェック状態を更新
       item.checked = checked;
       data.lastUpdated = new Date().toISOString();
       saveScheduleDataToLocalStorage(data);
@@ -149,12 +167,28 @@ export async function updateScheduleItemChecked(
       if (isOnline()) {
         try {
           await updateScheduleItemCheckedApi(itemId, checked);
-          // APIに送信後、最新データを取得してマージ（自分の変更を優先）
+          // APIに送信後、少し待ってから最新データを取得（API側の反映を待つ）
+          // 全てのチェック状態を保持するため、マージ処理を実行
+          await new Promise(resolve => setTimeout(resolve, 150)); // 150ms待機
+          
+          // マージ処理のために、現在のLocalStorageデータを再取得
+          const currentLocalData = loadScheduleDataFromLocalStorage();
           const latestData = await fetchScheduleData();
-          if (latestData) {
-            // LocalStorageの変更を優先してマージ
-            const mergedData = mergeScheduleData(data, latestData);
+          
+          if (latestData && currentLocalData) {
+            // LocalStorageの全チェック状態を保持しつつ、APIデータとマージ
+            // これにより、他の端末からの更新も含めて、全てのチェック状態が保持される
+            const mergedData = mergeScheduleData(currentLocalData, latestData);
             saveScheduleDataToLocalStorage(mergedData);
+            // データ更新を通知（同タブ内での再読込トリガー用）
+            try {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('schedule-updated'));
+              }
+            } catch {}
+          } else if (latestData) {
+            // currentLocalDataがない場合は、latestDataを保存
+            saveScheduleDataToLocalStorage(latestData);
           }
         } catch (error) {
           console.warn('Failed to sync check status to API:', error);
