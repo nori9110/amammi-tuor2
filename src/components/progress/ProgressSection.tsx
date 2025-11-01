@@ -5,16 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { Button } from '@/components/ui/Button';
 import { initialScheduleData } from '@/lib/data';
-import { loadScheduleData, calculateProgress, resetAllScheduleItems, loadScheduleDataSync } from '@/lib/storage';
+import { loadScheduleDataSync, calculateProgress, resetAllScheduleItems } from '@/lib/storage';
 
 export function ProgressSection() {
   const [progress, setProgress] = React.useState({ completed: 0, total: 0 });
 
   React.useEffect(() => {
-    // LocalStorageからデータを読み込んで進捗を計算
-    const loadData = async () => {
+    // LocalStorageからデータを読み込んで進捗を計算（各ブラウザで個別に保存されたデータ）
+    const loadData = () => {
       try {
-        const saved = await loadScheduleData();
+        const saved = loadScheduleDataSync();
         const data = saved || initialScheduleData;
         const prog = calculateProgress(data);
         // 進捗データが正しく計算されていることを確認
@@ -68,11 +68,11 @@ export function ProgressSection() {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('schedule-updated', handleScheduleUpdate);
 
-    // ページが表示された時に最新データを取得
-    const handleVisibilityChange = async () => {
+    // ページが表示された時に最新データを取得（LocalStorageから）
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         try {
-          const latest = await loadScheduleData();
+          const latest = loadScheduleDataSync();
           const data = latest || initialScheduleData;
           const prog = calculateProgress(data);
           if (prog.total > 0 || prog.completed === 0) {
@@ -87,10 +87,10 @@ export function ProgressSection() {
       }
     };
 
-    // ウィンドウフォーカス時に最新データを取得
-    const handleFocus = async () => {
+    // ウィンドウフォーカス時に最新データを取得（LocalStorageから）
+    const handleFocus = () => {
       try {
-        const latest = await loadScheduleData();
+        const latest = loadScheduleDataSync();
         const data = latest || initialScheduleData;
         const prog = calculateProgress(data);
         if (prog.total > 0 || prog.completed === 0) {
@@ -107,10 +107,10 @@ export function ProgressSection() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     
-    // ポーリングで最新データを取得（5秒ごと）
-    const pollInterval = setInterval(async () => {
+    // ポーリングで最新データを取得（5秒ごと、LocalStorageから）
+    const pollInterval = setInterval(() => {
       try {
-        const latest = await loadScheduleData();
+        const latest = loadScheduleDataSync();
         const data = latest || initialScheduleData;
         const prog = calculateProgress(data);
         if (prog.total > 0 || prog.completed === 0) {
@@ -137,7 +137,7 @@ export function ProgressSection() {
     if (confirm('全ての進捗をリセットしますか？')) {
       try {
         await resetAllScheduleItems();
-        const saved = await loadScheduleData();
+        const saved = loadScheduleDataSync();
         const data = saved || initialScheduleData;
         const prog = calculateProgress(data);
         if (prog.total > 0 || prog.completed === 0) {

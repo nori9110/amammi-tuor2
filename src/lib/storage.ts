@@ -162,17 +162,13 @@ export async function loadScheduleData(): Promise<ScheduleData | null> {
   return null;
 }
 
-// 同期なしでLocalStorageから読み込み（自動チェックも実行）
+// 同期なしでLocalStorageから読み込み（各ブラウザで個別に保存されたデータ）
 export function loadScheduleDataSync(): ScheduleData | null {
   const data = loadScheduleDataFromLocalStorage();
   if (!data) return null;
   
-  // 自動チェックを実行（日時が経過していれば自動的にON）
-  const autoCheckedData = autoCheckScheduleItems(data);
-  if (autoCheckedData !== data) {
-    saveScheduleDataToLocalStorage(autoCheckedData);
-  }
-  return autoCheckedData;
+  // 手動でチェックした状態を保持するため、自動チェックは実行しない
+  return data;
 }
 
 // データマージ関数: 全てのチェック状態を保持する（LocalStorage優先、APIの新規チェックも保持）
@@ -247,28 +243,34 @@ export function mergeScheduleData(
   return merged;
 }
 
-// チェックボックスは自動チェックのみで、手動操作は無効
-// この関数は呼ばれませんが、後方互換性のため残しています
+// チェックボックスの状態を更新（LocalStorageのみに保存、各ブラウザで個別管理）
 export async function updateScheduleItemChecked(
   itemId: string,
   checked: boolean
 ): Promise<void> {
-  // 自動チェック機能のため、手動での更新は無効
-  // 代わりに自動チェックを実行して反映
   const data = loadScheduleDataFromLocalStorage();
   if (!data) return;
 
-  // 自動チェックを実行（日時が経過していれば自動的にON）
-  const autoCheckedData = autoCheckScheduleItems(data);
-  if (autoCheckedData !== data) {
-    saveScheduleDataToLocalStorage(autoCheckedData);
-    
-    // データ更新を通知
-    try {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('schedule-updated'));
-      }
-    } catch {}
+  // 該当アイテムを検索して更新
+  for (const date of data.schedule) {
+    const item = date.items.find((i) => i.id === itemId);
+    if (item) {
+      // チェック状態を更新
+      item.checked = checked;
+      data.lastUpdated = new Date().toISOString();
+      
+      // LocalStorageに保存（各ブラウザで個別に保存）
+      saveScheduleDataToLocalStorage(data);
+      
+      // データ更新を通知（進捗バーの更新など）
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('schedule-updated'));
+        }
+      } catch {}
+      
+      return;
+    }
   }
 }
 
