@@ -98,7 +98,7 @@ export const initialScheduleData: ScheduleData = {
             lng: 139.7798,
             address: '東京都大田区羽田空港',
           },
-          website: 'https://www.haneda-airport.jp/',
+          website: 'https://tokyo-haneda.com/floor/terminal1/index.html',
           type: 'sightseeing',
         },
         {
@@ -113,7 +113,7 @@ export const initialScheduleData: ScheduleData = {
             lng: 139.7798,
             address: '東京都大田区羽田空港',
           },
-          website: 'https://www.haneda-airport.jp/',
+          website: 'https://tokyo-haneda.com/floor/terminal1/index.html',
           type: 'sightseeing',
         },
         {
@@ -470,7 +470,7 @@ export const initialScheduleData: ScheduleData = {
             lng: 129.49621863297182,
             address: '鹿児島県奄美市',
           },
-          website: 'https://kyoraumi.com/',
+          website: 'https://kyoraumi.com/pages/asahidori',
           type: 'restaurant',
         },
         {
