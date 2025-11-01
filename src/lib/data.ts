@@ -98,7 +98,7 @@ export const initialScheduleData: ScheduleData = {
             lng: 139.7798,
             address: '東京都大田区羽田空港',
           },
-          website: 'https://www.tokyo-airport-bldg.co.jp/terminal/1/',
+          website: 'https://www.haneda-airport.jp/',
           type: 'sightseeing',
         },
         {
@@ -113,6 +113,7 @@ export const initialScheduleData: ScheduleData = {
             lng: 139.7798,
             address: '東京都大田区羽田空港',
           },
+          website: 'https://www.haneda-airport.jp/',
           type: 'sightseeing',
         },
         {
@@ -526,6 +527,7 @@ export const initialScheduleData: ScheduleData = {
             lng: 139.7798,
             address: '東京都大田区羽田空港',
           },
+          website: 'https://www.haneda-airport.jp/',
           type: 'sightseeing',
         },
         {
