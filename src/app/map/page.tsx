@@ -1,5 +1,8 @@
 "use client";
 
+// 動的レンダリングを強制（静的生成をスキップ）
+export const dynamic = 'force-dynamic';
+
 import * as React from 'react';
 import { GoogleMapsLoader } from '@/components/map/GoogleMapsLoader';
 import { Map } from '@/components/map/Map';

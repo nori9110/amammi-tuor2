@@ -24,7 +24,8 @@ export function PlaceSearch({ map }: PlaceSearchProps) {
     setSelected(pos);
     if (map) {
       map.panTo(pos);
-      if (map.getZoom() < 14) map.setZoom(15);
+      const zoom = map.getZoom();
+      if (zoom !== undefined && zoom < 14) map.setZoom(15);
     }
   };
 

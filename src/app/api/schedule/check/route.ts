@@ -3,6 +3,9 @@ import { kv } from '@vercel/kv';
 import { ScheduleData } from '@/types';
 import { initialScheduleData } from '@/lib/data';
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic';
+
 const SCHEDULE_KEY = 'schedule:main';
 
 // PUT: チェック状態を更新

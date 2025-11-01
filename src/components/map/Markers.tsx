@@ -77,7 +77,8 @@ export function Markers({ points, initialActiveId = null }: MarkersProps) {
               setActiveId(p.itemId);
               if (map) {
                 map.panTo({ lat: p.lat, lng: p.lng });
-                if (map.getZoom() < 14) {
+                const zoom = map.getZoom();
+                if (zoom !== undefined && zoom < 14) {
                   map.setZoom(15);
                 }
               }
