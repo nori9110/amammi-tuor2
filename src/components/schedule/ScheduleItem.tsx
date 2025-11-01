@@ -22,9 +22,23 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
   }, [item.checked]);
 
   const handleCheckedChange = async (checked: boolean) => {
-    // 自動チェック機能のため、手動での操作は無効
-    // チェックボックスは読み取り専用（disabled）になっているため、この関数は呼ばれません
-    // 念のため、何もしないようにしています
+    // 即座にローカル状態を更新（楽観的更新）
+    setLocalChecked(checked);
+    
+    try {
+      await updateScheduleItemChecked(item.id, checked);
+      if (onCheckedChange) {
+        onCheckedChange();
+      }
+    } catch (error) {
+      console.error('Failed to update check status:', error);
+      // エラー時は元の状態に戻す
+      setLocalChecked(item.checked);
+      // エラーが発生してもコールバックを呼ぶ（再同期のため）
+      if (onCheckedChange) {
+        onCheckedChange();
+      }
+    }
   };
 
   return (
@@ -41,8 +55,7 @@ export function ScheduleItem({ item, onCheckedChange }: ScheduleItemProps) {
             checked={localChecked}
             onChange={(e) => handleCheckedChange(e.target.checked)}
             id={`checkbox-${item.id}`}
-            disabled={true}
-            title="チェックは日時が経過すると自動的にONになります"
+            title="個人用の確認（あなたのデバイスにのみ保存されます）"
           />
         </div>
         <div className="flex-1">

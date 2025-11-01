@@ -162,17 +162,9 @@ export async function loadScheduleData(): Promise<ScheduleData | null> {
   return null;
 }
 
-// 同期なしでLocalStorageから読み込み（自動チェックも実行）
+// 同期なしでLocalStorageから読み込み（個人用のチェック状態のみ）
 export function loadScheduleDataSync(): ScheduleData | null {
-  const data = loadScheduleDataFromLocalStorage();
-  if (!data) return null;
-  
-  // 自動チェックを実行（日時が経過していれば自動的にON）
-  const autoCheckedData = autoCheckScheduleItems(data);
-  if (autoCheckedData !== data) {
-    saveScheduleDataToLocalStorage(autoCheckedData);
-  }
-  return autoCheckedData;
+  return loadScheduleDataFromLocalStorage();
 }
 
 // データマージ関数: 全てのチェック状態を保持する（LocalStorage優先、APIの新規チェックも保持）
@@ -247,44 +239,33 @@ export function mergeScheduleData(
   return merged;
 }
 
-// チェックボックスは自動チェックのみで、手動操作は無効化
-// この関数は後方互換性のため残していますが、実際には使用されません
+// チェックボックスの状態を更新（個人用：LocalStorageのみに保存、KVには保存しない）
 export async function updateScheduleItemChecked(
   itemId: string,
   checked: boolean
 ): Promise<void> {
-  // 自動チェック機能のため、手動での更新は無効
-  // 代わりに自動チェックを実行
+  // LocalStorageのみに保存（個人用の確認のため）
   const data = loadScheduleDataFromLocalStorage();
   if (!data) return;
-  
-  // 自動チェックを実行（日時が経過していれば自動的にON）
-  const autoCheckedData = autoCheckScheduleItems(data);
-  if (autoCheckedData !== data) {
-    saveScheduleDataToLocalStorage(autoCheckedData);
-    
-    // データ更新を通知
-    try {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('schedule-updated'));
-      }
-    } catch {}
-    
-    // オンラインの場合はAPIに同期（バックグラウンドで実行、エラーは無視）
-    if (isOnline()) {
-      // 変更されたアイテムをAPIに同期
-      for (const date of autoCheckedData.schedule) {
-        for (const item of date.items) {
-          const oldItem = data.schedule
-            .find(d => d.date === date.date)
-            ?.items.find(i => i.id === item.id);
-          if (oldItem && oldItem.checked !== item.checked) {
-            updateScheduleItemCheckedApi(item.id, item.checked).catch((error) => {
-              console.warn('Failed to sync check status to API:', error);
-            });
-          }
+
+  // 該当アイテムを検索して更新
+  for (const date of data.schedule) {
+    const item = date.items.find((i) => i.id === itemId);
+    if (item) {
+      // チェック状態を更新
+      item.checked = checked;
+      data.lastUpdated = new Date().toISOString();
+      saveScheduleDataToLocalStorage(data);
+      
+      // データ更新を通知（同タブ内での再読込トリガー用）
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('schedule-updated'));
         }
-      }
+      } catch {}
+      
+      // KV（共有ストレージ）には保存しない（個人用の確認のため）
+      return;
     }
   }
 }
