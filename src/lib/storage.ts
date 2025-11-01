@@ -176,7 +176,7 @@ export async function updateScheduleItemChecked(
   itemId: string,
   checked: boolean
 ): Promise<void> {
-  // まずLocalStorageを更新（楽観的更新）
+  // LocalStorageを更新（シンプルな方法）
   const data = loadScheduleDataFromLocalStorage();
   if (!data) return;
 
@@ -184,7 +184,7 @@ export async function updateScheduleItemChecked(
   for (const date of data.schedule) {
     const item = date.items.find((i) => i.id === itemId);
     if (item) {
-      // チェック状態を更新
+      // チェック状態を更新（シンプルにON/OFF）
       item.checked = checked;
       data.lastUpdated = new Date().toISOString();
       saveScheduleDataToLocalStorage(data);
@@ -196,36 +196,11 @@ export async function updateScheduleItemChecked(
         }
       } catch {}
 
-      // オンラインの場合はAPIに同期（バックグラウンドで実行）
+      // オンラインの場合はAPIに同期（バックグラウンドで実行、エラーは無視）
       if (isOnline()) {
-        // API同期を非同期で実行（ユーザー操作をブロックしない）
-        (async () => {
-          try {
-            await updateScheduleItemCheckedApi(itemId, checked);
-            // APIに送信後、少し待ってから最新データを取得してマージ
-            await new Promise(resolve => setTimeout(resolve, 300)); // 300ms待機
-            
-            // 現在のLocalStorageデータを再取得
-            const currentLocalData = loadScheduleDataFromLocalStorage();
-            if (!currentLocalData) return;
-            
-            // APIから最新データを取得
-            const apiData = await fetchScheduleData();
-            if (apiData) {
-              // LocalStorageとAPIデータをマージ（全てのチェック状態を保持）
-              const mergedData = mergeScheduleData(currentLocalData, apiData);
-              saveScheduleDataToLocalStorage(mergedData);
-              // データ更新を通知
-              try {
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('schedule-updated'));
-                }
-              } catch {}
-            }
-          } catch (error) {
-            console.warn('Failed to sync check status to API:', error);
-          }
-        })();
+        updateScheduleItemCheckedApi(itemId, checked).catch((error) => {
+          console.warn('Failed to sync check status to API:', error);
+        });
       }
       return;
     }

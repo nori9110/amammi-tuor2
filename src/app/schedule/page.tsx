@@ -38,7 +38,8 @@ export default function SchedulePage() {
   }, []);
 
   React.useEffect(() => {
-    // 進捗率を計算
+    // 進捗率を計算（scheduleDataが変更されるたびに再計算）
+    // シンプルにチェックされた数をカウント
     const prog = calculateProgress(scheduleData);
     setProgress(prog);
   }, [scheduleData]);
@@ -125,42 +126,15 @@ export default function SchedulePage() {
     };
   }, []); // マウント時のみ設定
 
-  const handleItemChange = async () => {
+  const handleItemChange = () => {
     // チェック状態が変更されたら即座にLocalStorageから読み込んで反映
     // updateScheduleItemChecked内で既にLocalStorageが更新されている
+    // シンプルにLocalStorageから読み込むだけ
     const saved = loadScheduleDataSync();
     if (saved) {
       setScheduleData({ ...saved });
+      // 進捗は scheduleData が更新されるので、useEffect で自動的に再計算される
     }
-    // バックグラウンドでAPIから最新データを取得し、現在のデータとマージ
-    // （他の端末からの更新も反映するため）
-    // 少し待ってから取得することで、API側の反映を待つ
-    setTimeout(async () => {
-      try {
-        // 現在のLocalStorageデータを取得
-        const currentLocalData = loadScheduleDataSync();
-        if (!currentLocalData) return;
-        
-        // APIから最新データを取得
-        const apiData = await fetchScheduleData();
-        if (apiData) {
-          // LocalStorageとAPIデータをマージ（全てのチェック状態を保持）
-          const mergedData = mergeScheduleData(currentLocalData, apiData);
-          saveScheduleDataToLocalStorage(mergedData);
-          setScheduleData(mergedData);
-        } else {
-          // APIから取得できない場合は、LocalStorageデータを使用
-          setScheduleData(currentLocalData);
-        }
-      } catch (error) {
-        console.warn('Failed to sync latest data:', error);
-        // エラー時はLocalStorageデータを使用
-        const saved = loadScheduleDataSync();
-        if (saved) {
-          setScheduleData(saved);
-        }
-      }
-    }, 500); // 500ms後に実行（API側の反映を待つ）
   };
 
   const handleReset = async () => {
