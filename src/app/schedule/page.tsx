@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ScheduleDate } from '@/components/schedule/ScheduleDate';
 import { initialScheduleData } from '@/lib/data';
-import { loadScheduleDataSync, saveScheduleDataToLocalStorage } from '@/lib/storage';
+import { loadScheduleDataSync, saveScheduleDataToLocalStorage, autoCheckScheduleItems } from '@/lib/storage';
 import { ScheduleData } from '@/types';
 import { Button } from '@/components/ui/Button';
 
@@ -12,6 +12,7 @@ export default function SchedulePage() {
 
   React.useEffect(() => {
     // LocalStorageから個人用のチェック状態を読み込む
+    // 自動チェックも実行（日時が経過していれば自動的にON）
     const loadData = () => {
       const saved = loadScheduleDataSync();
       if (saved) {
@@ -20,16 +21,19 @@ export default function SchedulePage() {
         const initialTotalItems = initialScheduleData.schedule.reduce((sum, d) => sum + d.items.length, 0);
 
         if (!('lastUpdated' in saved) || savedTotalItems < initialTotalItems) {
-          // 初期データを使用（チェック状態は初期化）
-          setScheduleData(initialScheduleData);
-          saveScheduleDataToLocalStorage(initialScheduleData);
+          // 初期データを使用して自動チェックを実行
+          const autoChecked = autoCheckScheduleItems(initialScheduleData);
+          setScheduleData(autoChecked);
+          saveScheduleDataToLocalStorage(autoChecked);
         } else {
+          // 自動チェック済みのデータを使用
           setScheduleData(saved);
         }
       } else {
-        // 初期データを保存
-        setScheduleData(initialScheduleData);
-        saveScheduleDataToLocalStorage(initialScheduleData);
+        // 初期データを保存して自動チェックを実行
+        const autoChecked = autoCheckScheduleItems(initialScheduleData);
+        setScheduleData(autoChecked);
+        saveScheduleDataToLocalStorage(autoChecked);
       }
     };
     loadData();
@@ -37,6 +41,7 @@ export default function SchedulePage() {
 
   React.useEffect(() => {
     // LocalStorage変更イベント（同タブ内）
+    // 自動チェックも実行して反映
     const handleScheduleUpdate = () => {
       const saved = loadScheduleDataSync();
       if (saved) {
@@ -45,6 +50,7 @@ export default function SchedulePage() {
     };
 
     // Storageイベント（他のタブからの変更）
+    // 自動チェックも実行して反映
     const handleStorageChange = () => {
       const saved = loadScheduleDataSync();
       if (saved) {
@@ -55,9 +61,19 @@ export default function SchedulePage() {
     window.addEventListener('schedule-updated', handleScheduleUpdate);
     window.addEventListener('storage', handleStorageChange);
 
+    // ポーリングで自動チェックを実行（1分ごと）
+    // 日時が経過していれば自動的にチェックがONになる
+    const pollInterval = setInterval(() => {
+      const saved = loadScheduleDataSync();
+      if (saved) {
+        setScheduleData(saved);
+      }
+    }, 60000); // 1分ごと
+
     return () => {
       window.removeEventListener('schedule-updated', handleScheduleUpdate);
       window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
     };
   }, []); // マウント時のみ設定
 
@@ -70,7 +86,7 @@ export default function SchedulePage() {
   };
 
   const handleReset = () => {
-    if (confirm('全てのチェックをリセットしますか？')) {
+    if (confirm('全てのチェックをリセットしますか？\n（時間が経過した項目は自動的に再チェックされます）')) {
       const data = loadScheduleDataSync();
       if (data) {
         // 全アイテムのcheckedをfalseに
@@ -80,8 +96,10 @@ export default function SchedulePage() {
           }
         }
         data.lastUpdated = new Date().toISOString();
-        saveScheduleDataToLocalStorage(data);
-        setScheduleData({ ...data });
+        // リセット後、自動チェックを実行
+        const autoChecked = autoCheckScheduleItems(data);
+        saveScheduleDataToLocalStorage(autoChecked);
+        setScheduleData(autoChecked);
       }
     }
   };
