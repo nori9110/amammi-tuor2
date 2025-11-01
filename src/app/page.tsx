@@ -13,7 +13,7 @@ export default function Home() {
       <section id="hero" className="text-center py-12">
         <h1 className="text-4xl font-bold mb-4 text-pastel-800 dark:text-pastel-100">奄美大島旅行しおり</h1>
         <p className="text-lg text-pastel-900 dark:text-pastel-50">
-          参加メンバー間で旅行工程の進捗を共有し、GoogleMapを用いた案内機能を提供します
+          参加メンバー間で旅行工程の進捗を共有し、奄美大島歩き方を用いた案内機能を提供します
         </p>
       </section>
 

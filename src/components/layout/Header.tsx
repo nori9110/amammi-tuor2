@@ -33,7 +33,7 @@ export function Header() {
             ツアー日程
           </Link>
           <Link href="/map" className="text-sm font-medium text-pastel-900 hover:text-primary transition-colors dark:text-pastel-200 dark:hover:text-primary-light">
-            GoogleMap
+            奄美大島歩き方
           </Link>
           <Link href="/split" className="text-sm font-medium text-pastel-900 hover:text-primary transition-colors dark:text-pastel-200 dark:hover:text-primary-light">
             割り勘・立替

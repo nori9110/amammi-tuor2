@@ -7,6 +7,10 @@ export function saveScheduleData(data: ScheduleData): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(data));
+    // データ更新を通知（同タブ内での再読込トリガー用）
+    try {
+      window.dispatchEvent(new CustomEvent('schedule-updated'));
+    } catch {}
   } catch (error) {
     console.error('Failed to save schedule data:', error);
   }
@@ -33,6 +37,23 @@ export function updateScheduleItemChecked(itemId: string, checked: boolean): voi
     const item = date.items.find((i) => i.id === itemId);
     if (item) {
       item.checked = checked;
+      data.lastUpdated = new Date().toISOString();
+      saveScheduleData(data);
+      return;
+    }
+  }
+}
+
+// 位置情報（緯度・経度）を更新
+export function updateScheduleItemLatLng(itemId: string, lat: number, lng: number): void {
+  const data = loadScheduleData();
+  if (!data) return;
+
+  for (const date of data.schedule) {
+    const item = date.items.find((i) => i.id === itemId);
+    if (item && item.location) {
+      item.location.lat = lat;
+      item.location.lng = lng;
       data.lastUpdated = new Date().toISOString();
       saveScheduleData(data);
       return;
