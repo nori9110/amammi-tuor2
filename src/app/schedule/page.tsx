@@ -67,18 +67,12 @@ export default function SchedulePage() {
       }
     };
 
-    // ページが表示された時に最新データを取得（マージ）
+    // ページが表示された時に最新データを取得（loadScheduleDataが既にマージ処理を含んでいる）
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          const saved = loadScheduleDataSync();
           const latest = await loadScheduleData();
-          if (latest && saved) {
-            // LocalStorageの変更を優先してマージ
-            const merged = mergeScheduleData(saved, latest);
-            setScheduleData(merged);
-            saveScheduleDataToLocalStorage(merged);
-          } else if (latest) {
+          if (latest) {
             setScheduleData(latest);
           }
         } catch (error) {
@@ -87,17 +81,11 @@ export default function SchedulePage() {
       }
     };
 
-    // ウィンドウフォーカス時に最新データを取得（マージ）
+    // ウィンドウフォーカス時に最新データを取得（loadScheduleDataが既にマージ処理を含んでいる）
     const handleFocus = async () => {
       try {
-        const saved = loadScheduleDataSync();
         const latest = await loadScheduleData();
-        if (latest && saved) {
-          // LocalStorageの変更を優先してマージ
-          const merged = mergeScheduleData(saved, latest);
-          setScheduleData(merged);
-          saveScheduleDataToLocalStorage(merged);
-        } else if (latest) {
+        if (latest) {
           setScheduleData(latest);
         }
       } catch (error) {
@@ -111,23 +99,15 @@ export default function SchedulePage() {
     window.addEventListener('focus', handleFocus);
 
     // ポーリングで最新データを取得（5秒ごと）
+    // loadScheduleDataは既にマージ処理を含んでいるため、直接使用できる
     const pollInterval = setInterval(async () => {
       try {
-        const saved = loadScheduleDataSync();
         const latest = await loadScheduleData();
         if (latest) {
           // データが変更されているかチェック（lastUpdatedを比較）
           if (latest.lastUpdated !== lastUpdatedRef.current) {
             lastUpdatedRef.current = latest.lastUpdated;
-            // LocalStorageの変更を優先してマージ
-            if (saved) {
-              const merged = mergeScheduleData(saved, latest);
-              setScheduleData(merged);
-              saveScheduleDataToLocalStorage(merged);
-              lastUpdatedRef.current = merged.lastUpdated;
-            } else {
-              setScheduleData(latest);
-            }
+            setScheduleData(latest);
           }
         }
       } catch (error) {
@@ -145,9 +125,8 @@ export default function SchedulePage() {
   }, []); // マウント時のみ設定
 
   const handleItemChange = async () => {
-    // チェック状態が変更されたら再読み込み（同期版を使用して即座に反映）
-    // updateScheduleItemChecked内で既にマージ処理が完了しているため、
-    // LocalStorageから最新データを読み込むだけで良い
+    // チェック状態が変更されたら即座にLocalStorageから読み込んで反映
+    // updateScheduleItemChecked内で既にLocalStorageが更新されている
     const saved = loadScheduleDataSync();
     if (saved) {
       setScheduleData({ ...saved });
@@ -157,22 +136,15 @@ export default function SchedulePage() {
     // 少し待ってから取得することで、API側の反映を待つ
     setTimeout(async () => {
       try {
-        const saved = loadScheduleDataSync();
+        // loadScheduleDataは既にマージ処理を含んでいるため、直接呼び出すだけで良い
         const latest = await loadScheduleData();
-        if (latest && saved) {
-          // 現在のLocalStorageデータとAPIデータをマージ（全てのチェック状態を保持）
-          const merged = mergeScheduleData(saved, latest);
-          setScheduleData(merged);
-          // LocalStorageにも保存
-          saveScheduleDataToLocalStorage(merged);
-        } else if (latest) {
-          // savedがない場合は最新データをそのまま使用
+        if (latest) {
           setScheduleData(latest);
         }
       } catch (error) {
         console.warn('Failed to sync latest data:', error);
       }
-    }, 200); // 200ms後に実行（API側の反映を待つ）
+    }, 300); // 300ms後に実行（API側の反映を待つ）
   };
 
   const handleReset = async () => {

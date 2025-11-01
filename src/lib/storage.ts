@@ -66,16 +66,25 @@ export async function saveScheduleData(data: ScheduleData): Promise<void> {
   }
 }
 
-// スケジュールデータの読み込み（API優先、フォールバックはLocalStorage）
+// スケジュールデータの読み込み（API優先、フォールバックはLocalStorage、マージ処理を実行）
 export async function loadScheduleData(): Promise<ScheduleData | null> {
+  const localData = loadScheduleDataFromLocalStorage();
+  
   // オンラインの場合はAPIから取得を試行
   if (isOnline()) {
     try {
       const apiData = await fetchScheduleData();
       if (apiData) {
-        // APIから取得できた場合はLocalStorageにも保存
-        saveScheduleDataToLocalStorage(apiData);
-        return apiData;
+        // LocalStorageとAPIデータをマージ
+        if (localData) {
+          const mergedData = mergeScheduleData(localData, apiData);
+          saveScheduleDataToLocalStorage(mergedData);
+          return mergedData;
+        } else {
+          // LocalStorageにデータがない場合は、APIデータをそのまま保存
+          saveScheduleDataToLocalStorage(apiData);
+          return apiData;
+        }
       }
     } catch (error) {
       console.warn('Failed to fetch from API, falling back to localStorage:', error);
@@ -83,7 +92,7 @@ export async function loadScheduleData(): Promise<ScheduleData | null> {
   }
 
   // オフラインまたはAPI失敗時はLocalStorageから取得
-  return loadScheduleDataFromLocalStorage();
+  return localData;
 }
 
 // 同期なしでLocalStorageから読み込み（既存のAPI互換性のため）
@@ -91,15 +100,12 @@ export function loadScheduleDataSync(): ScheduleData | null {
   return loadScheduleDataFromLocalStorage();
 }
 
-// データマージ関数: 全てのチェック状態を保持し、より新しい方を優先してマージ
+// データマージ関数: 全てのチェック状態を保持する（各アイテムごとに独立してマージ）
 export function mergeScheduleData(
   localData: ScheduleData,
   apiData: ScheduleData
 ): ScheduleData {
-  const localTime = new Date(localData.lastUpdated).getTime();
-  const apiTime = new Date(apiData.lastUpdated).getTime();
-  
-  // APIデータをベースにコピー（APIデータには既に全てのチェック状態が含まれている）
+  // APIデータをベースにコピー
   const merged: ScheduleData = {
     ...apiData,
     schedule: apiData.schedule.map(date => {
@@ -114,16 +120,12 @@ export function mergeScheduleData(
           
           if (localItem) {
             // 両方のデータがある場合
-            // チェック状態: より新しいlastUpdatedを持つデータソースの値を優先
-            // これにより、全てのチェック状態が保持される
-            let checkedValue = apiItem.checked;
-            if (localTime > apiTime) {
-              // LocalStorageがより新しい場合は、LocalStorageの値を優先
-              // これにより、ユーザーが操作した直後のチェック状態が保持される
-              checkedValue = localItem.checked;
-            }
-            // apiTime >= localTime の場合は、APIの値をそのまま使用
-            // これにより、API側で他のアイテムがチェックされている場合も保持される
+            // チェック状態: どちらかがtrueならtrue（OR演算）
+            // これにより、全てのチェック状態が確実に保持される
+            // 例: LocalStorageでアイテム1がON、APIでアイテム2がONの場合、
+            // 両方ともONのまま保持される
+            // 注意: これは、異なるアイテムのチェック状態を保持するための最適な方法です
+            const checkedValue = localItem.checked || apiItem.checked;
             
             // その他の情報（位置情報など）はAPIデータを優先
             return {
@@ -133,14 +135,32 @@ export function mergeScheduleData(
           }
           
           // LocalStorageにアイテムがない場合は、APIデータをそのまま使用
-          // これにより、API側でチェックされたアイテムも保持される
           return apiItem;
         }),
       };
     }),
   };
   
+  // LocalStorageにのみ存在するアイテムも追加（APIデータにない場合）
+  localData.schedule.forEach(localDate => {
+    const mergedDate = merged.schedule.find(d => d.date === localDate.date);
+    if (mergedDate) {
+      localDate.items.forEach(localItem => {
+        const exists = mergedDate.items.some(item => item.id === localItem.id);
+        if (!exists) {
+          // APIデータに存在しないアイテムを追加
+          mergedDate.items.push(localItem);
+        }
+      });
+    } else {
+      // APIデータに存在しない日付を追加
+      merged.schedule.push(localDate);
+    }
+  });
+  
   // lastUpdatedはより新しい方を採用
+  const localTime = new Date(localData.lastUpdated).getTime();
+  const apiTime = new Date(apiData.lastUpdated).getTime();
   merged.lastUpdated = localTime > apiTime ? localData.lastUpdated : apiData.lastUpdated;
   
   return merged;
@@ -162,33 +182,37 @@ export async function updateScheduleItemChecked(
       item.checked = checked;
       data.lastUpdated = new Date().toISOString();
       saveScheduleDataToLocalStorage(data);
+      
+      // データ更新を通知（同タブ内での再読込トリガー用）
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('schedule-updated'));
+        }
+      } catch {}
 
       // オンラインの場合はAPIに同期
       if (isOnline()) {
         try {
           await updateScheduleItemCheckedApi(itemId, checked);
-          // APIに送信後、少し待ってから最新データを取得（API側の反映を待つ）
-          // 全てのチェック状態を保持するため、マージ処理を実行
-          await new Promise(resolve => setTimeout(resolve, 150)); // 150ms待機
+          // APIに送信後、少し待ってから最新データを取得してマージ
+          await new Promise(resolve => setTimeout(resolve, 200)); // 200ms待機
           
-          // マージ処理のために、現在のLocalStorageデータを再取得
+          // 現在のLocalStorageデータを再取得
           const currentLocalData = loadScheduleDataFromLocalStorage();
-          const latestData = await fetchScheduleData();
+          if (!currentLocalData) return;
           
-          if (latestData && currentLocalData) {
-            // LocalStorageの全チェック状態を保持しつつ、APIデータとマージ
-            // これにより、他の端末からの更新も含めて、全てのチェック状態が保持される
-            const mergedData = mergeScheduleData(currentLocalData, latestData);
+          // APIから最新データを取得
+          const apiData = await fetchScheduleData();
+          if (apiData) {
+            // LocalStorageとAPIデータをマージ（全てのチェック状態を保持）
+            const mergedData = mergeScheduleData(currentLocalData, apiData);
             saveScheduleDataToLocalStorage(mergedData);
-            // データ更新を通知（同タブ内での再読込トリガー用）
+            // データ更新を通知
             try {
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('schedule-updated'));
               }
             } catch {}
-          } else if (latestData) {
-            // currentLocalDataがない場合は、latestDataを保存
-            saveScheduleDataToLocalStorage(latestData);
           }
         } catch (error) {
           console.warn('Failed to sync check status to API:', error);

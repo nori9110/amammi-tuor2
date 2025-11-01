@@ -11,9 +11,9 @@ export function ProgressSection() {
   const [progress, setProgress] = React.useState({ completed: 0, total: 0 });
 
   React.useEffect(() => {
-    // APIからデータを読み込んで進捗を計算
+    // LocalStorageからデータを読み込んで進捗を計算（マージ済みデータを使用）
     const loadData = async () => {
-      const saved = await loadScheduleData();
+      const saved = await loadScheduleData(); // 既にマージ処理を含んでいる
       const data = saved || initialScheduleData;
       const prog = calculateProgress(data);
       setProgress(prog);
@@ -42,11 +42,11 @@ export function ProgressSection() {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('schedule-updated', handleScheduleUpdate);
 
-    // ページが表示された時に最新データを取得
+    // ページが表示された時に最新データを取得（マージ済み）
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          const latest = await loadScheduleData();
+          const latest = await loadScheduleData(); // 既にマージ処理を含んでいる
           if (latest) {
             const prog = calculateProgress(latest);
             setProgress(prog);
@@ -57,10 +57,10 @@ export function ProgressSection() {
       }
     };
 
-    // ウィンドウフォーカス時に最新データを取得
+    // ウィンドウフォーカス時に最新データを取得（マージ済み）
     const handleFocus = async () => {
       try {
-        const latest = await loadScheduleData();
+        const latest = await loadScheduleData(); // 既にマージ処理を含んでいる
         if (latest) {
           const prog = calculateProgress(latest);
           setProgress(prog);
@@ -73,10 +73,10 @@ export function ProgressSection() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     
-    // ポーリングで最新データを取得（5秒ごと）
+    // ポーリングで最新データを取得（5秒ごと、マージ済み）
     const pollInterval = setInterval(async () => {
       try {
-        const latest = await loadScheduleData();
+        const latest = await loadScheduleData(); // 既にマージ処理を含んでいる
         if (latest) {
           const prog = calculateProgress(latest);
           setProgress(prog);
