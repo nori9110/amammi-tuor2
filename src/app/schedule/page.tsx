@@ -4,6 +4,7 @@ import * as React from 'react';
 import { ScheduleDate } from '@/components/schedule/ScheduleDate';
 import { initialScheduleData } from '@/lib/data';
 import { loadScheduleData, saveScheduleData, resetAllScheduleItems, calculateProgress, loadScheduleDataSync, mergeScheduleData, saveScheduleDataToLocalStorage } from '@/lib/storage';
+import { fetchScheduleData } from '@/lib/api-sync';
 import { ScheduleData } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
@@ -136,15 +137,30 @@ export default function SchedulePage() {
     // 少し待ってから取得することで、API側の反映を待つ
     setTimeout(async () => {
       try {
-        // loadScheduleDataは既にマージ処理を含んでいるため、直接呼び出すだけで良い
-        const latest = await loadScheduleData();
-        if (latest) {
-          setScheduleData(latest);
+        // 現在のLocalStorageデータを取得
+        const currentLocalData = loadScheduleDataSync();
+        if (!currentLocalData) return;
+        
+        // APIから最新データを取得
+        const apiData = await fetchScheduleData();
+        if (apiData) {
+          // LocalStorageとAPIデータをマージ（全てのチェック状態を保持）
+          const mergedData = mergeScheduleData(currentLocalData, apiData);
+          saveScheduleDataToLocalStorage(mergedData);
+          setScheduleData(mergedData);
+        } else {
+          // APIから取得できない場合は、LocalStorageデータを使用
+          setScheduleData(currentLocalData);
         }
       } catch (error) {
         console.warn('Failed to sync latest data:', error);
+        // エラー時はLocalStorageデータを使用
+        const saved = loadScheduleDataSync();
+        if (saved) {
+          setScheduleData(saved);
+        }
       }
-    }, 300); // 300ms後に実行（API側の反映を待つ）
+    }, 500); // 500ms後に実行（API側の反映を待つ）
   };
 
   const handleReset = async () => {
