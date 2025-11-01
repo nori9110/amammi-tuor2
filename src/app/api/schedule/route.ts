@@ -11,6 +11,22 @@ const SCHEDULE_KEY = 'schedule:main';
 // GET: 進捗データを取得
 export async function GET() {
   try {
+    // 環境変数のチェック
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      console.warn('KV環境変数が設定されていません。LocalStorageフォールバックを使用してください。');
+      // 環境変数が設定されていない場合でも、初期データを返す
+      const initialData: ScheduleData = {
+        ...initialScheduleData,
+        lastUpdated: new Date().toISOString(),
+        version: 1,
+      };
+      return NextResponse.json({
+        success: true,
+        data: initialData,
+        warning: 'KV環境変数が設定されていません',
+      });
+    }
+
     const data = await kv.get<ScheduleData>(SCHEDULE_KEY);
     
     if (!data) {
@@ -32,19 +48,34 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Failed to fetch schedule data:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch schedule data',
-      },
-      { status: 500 }
-    );
+    // エラー時も初期データを返す（フォールバック）
+    const initialData: ScheduleData = {
+      ...initialScheduleData,
+      lastUpdated: new Date().toISOString(),
+      version: 1,
+    };
+    return NextResponse.json({
+      success: true,
+      data: initialData,
+      error: 'Failed to fetch from KV, returning initial data',
+    });
   }
 }
 
 // PUT: 進捗データを更新
 export async function PUT(request: NextRequest) {
   try {
+    // 環境変数のチェック
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'KV環境変数が設定されていません。Vercelダッシュボードで環境変数を設定してください。',
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { schedule, lastUpdated, version } = body as ScheduleData;
 

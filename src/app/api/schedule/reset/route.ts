@@ -11,6 +11,17 @@ const SCHEDULE_KEY = 'schedule:main';
 // POST: 全チェック状態をリセット
 export async function POST() {
   try {
+    // 環境変数のチェック
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'KV環境変数が設定されていません。Vercelダッシュボードで環境変数を設定してください。',
+        },
+        { status: 503 }
+      );
+    }
+
     // 現在のデータを取得
     let data = await kv.get<ScheduleData>(SCHEDULE_KEY);
     
