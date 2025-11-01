@@ -54,6 +54,7 @@ export default function SchedulePage() {
 
   React.useEffect(() => {
     // LocalStorage変更イベント（同タブ内）
+    // 自動チェックも実行して反映
     const handleScheduleUpdate = () => {
       const saved = loadScheduleDataSync();
       if (saved) {
@@ -62,6 +63,7 @@ export default function SchedulePage() {
     };
 
     // Storageイベント（他のタブからの変更）
+    // 自動チェックも実行して反映
     const handleStorageChange = () => {
       const saved = loadScheduleDataSync();
       if (saved) {
@@ -100,22 +102,22 @@ export default function SchedulePage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
 
-    // ポーリングで最新データを取得（5秒ごと）
-    // loadScheduleDataは既にマージ処理を含んでいるため、直接使用できる
+    // ポーリングで最新データを取得し、自動チェックを実行（1分ごと）
+    // 日時が経過していれば自動的にチェックがONになる
     const pollInterval = setInterval(async () => {
       try {
         const latest = await loadScheduleData();
         if (latest) {
-          // データが変更されているかチェック（lastUpdatedを比較）
+          // 自動チェックにより、lastUpdatedが変更されている可能性があるため、常に更新
           if (latest.lastUpdated !== lastUpdatedRef.current) {
             lastUpdatedRef.current = latest.lastUpdated;
-            setScheduleData(latest);
           }
+          setScheduleData(latest);
         }
       } catch (error) {
         console.warn('Failed to poll latest data:', error);
       }
-    }, 5000); // 5秒ごと
+    }, 60000); // 1分ごと（自動チェックのため）
 
     return () => {
       window.removeEventListener('schedule-updated', handleScheduleUpdate);
@@ -127,9 +129,9 @@ export default function SchedulePage() {
   }, []); // マウント時のみ設定
 
   const handleItemChange = () => {
-    // チェック状態が変更されたら即座にLocalStorageから読み込んで反映
-    // updateScheduleItemChecked内で既にLocalStorageが更新されている
-    // シンプルにLocalStorageから読み込むだけ
+    // 自動チェック機能のため、手動操作は不要
+    // ポーリングとイベントリスナーで自動的に更新される
+    // 念のため、自動チェックを実行して反映
     const saved = loadScheduleDataSync();
     if (saved) {
       setScheduleData({ ...saved });

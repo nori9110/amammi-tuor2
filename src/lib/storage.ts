@@ -1,4 +1,4 @@
-import { ScheduleData } from '@/types';
+import { ScheduleData, ScheduleItem, ScheduleDate } from '@/types';
 import {
   fetchScheduleData,
   updateScheduleData,
@@ -10,6 +10,62 @@ import {
 
 const SCHEDULE_STORAGE_KEY = 'amami-schedule';
 const PENDING_SYNC_KEY = 'amami-schedule-pending-sync';
+
+// 日付と時間が経過しているかをチェック
+function isTimePassed(dateStr: string, timeStr: string): boolean {
+  try {
+    // 日付と時間を結合してDateオブジェクトを作成
+    // dateStr: '2024-11-03', timeStr: '6:30'
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const scheduleDate = new Date(dateStr);
+    scheduleDate.setHours(hours, minutes || 0, 0, 0);
+    
+    // 現在時刻と比較
+    const now = new Date();
+    return now >= scheduleDate;
+  } catch (error) {
+    console.warn('Failed to parse date/time:', dateStr, timeStr, error);
+    return false;
+  }
+}
+
+// スケジュールデータを自動チェック（日時が経過していれば自動的にON）
+export function autoCheckScheduleItems(data: ScheduleData): ScheduleData {
+  const now = new Date();
+  let hasChanges = false;
+  
+  const updatedSchedule = data.schedule.map((scheduleDate: ScheduleDate) => {
+    const updatedItems = scheduleDate.items.map((item: ScheduleItem) => {
+      // 日時が経過していれば自動的にチェック
+      const shouldBeChecked = isTimePassed(scheduleDate.date, item.time);
+      
+      if (item.checked !== shouldBeChecked) {
+        hasChanges = true;
+        return {
+          ...item,
+          checked: shouldBeChecked,
+        };
+      }
+      
+      return item;
+    });
+    
+    return {
+      ...scheduleDate,
+      items: updatedItems,
+    };
+  });
+  
+  if (hasChanges) {
+    return {
+      ...data,
+      schedule: updatedSchedule,
+      lastUpdated: now.toISOString(),
+    };
+  }
+  
+  return data;
+}
 
 // LocalStorageの保存（フォールバック用）
 export function saveScheduleDataToLocalStorage(data: ScheduleData): void {
@@ -66,7 +122,7 @@ export async function saveScheduleData(data: ScheduleData): Promise<void> {
   }
 }
 
-// スケジュールデータの読み込み（API優先、フォールバックはLocalStorage、マージ処理を実行）
+// スケジュールデータの読み込み（API優先、フォールバックはLocalStorage、マージ処理と自動チェックを実行）
 export async function loadScheduleData(): Promise<ScheduleData | null> {
   const localData = loadScheduleDataFromLocalStorage();
   
@@ -76,28 +132,47 @@ export async function loadScheduleData(): Promise<ScheduleData | null> {
       const apiData = await fetchScheduleData();
       if (apiData) {
         // LocalStorageとAPIデータをマージ
+        let mergedData: ScheduleData;
         if (localData) {
-          const mergedData = mergeScheduleData(localData, apiData);
-          saveScheduleDataToLocalStorage(mergedData);
-          return mergedData;
+          mergedData = mergeScheduleData(localData, apiData);
         } else {
-          // LocalStorageにデータがない場合は、APIデータをそのまま保存
-          saveScheduleDataToLocalStorage(apiData);
-          return apiData;
+          mergedData = apiData;
         }
+        
+        // 自動チェックを実行（日時が経過していれば自動的にON）
+        mergedData = autoCheckScheduleItems(mergedData);
+        
+        saveScheduleDataToLocalStorage(mergedData);
+        return mergedData;
       }
     } catch (error) {
       console.warn('Failed to fetch from API, falling back to localStorage:', error);
     }
   }
 
-  // オフラインまたはAPI失敗時はLocalStorageから取得
-  return localData;
+  // オフラインまたはAPI失敗時はLocalStorageから取得して自動チェックを実行
+  if (localData) {
+    const autoCheckedData = autoCheckScheduleItems(localData);
+    if (autoCheckedData !== localData) {
+      saveScheduleDataToLocalStorage(autoCheckedData);
+    }
+    return autoCheckedData;
+  }
+  
+  return null;
 }
 
-// 同期なしでLocalStorageから読み込み（既存のAPI互換性のため）
+// 同期なしでLocalStorageから読み込み（自動チェックも実行）
 export function loadScheduleDataSync(): ScheduleData | null {
-  return loadScheduleDataFromLocalStorage();
+  const data = loadScheduleDataFromLocalStorage();
+  if (!data) return null;
+  
+  // 自動チェックを実行（日時が経過していれば自動的にON）
+  const autoCheckedData = autoCheckScheduleItems(data);
+  if (autoCheckedData !== data) {
+    saveScheduleDataToLocalStorage(autoCheckedData);
+  }
+  return autoCheckedData;
 }
 
 // データマージ関数: 全てのチェック状態を保持する（LocalStorage優先、APIの新規チェックも保持）
@@ -172,37 +247,44 @@ export function mergeScheduleData(
   return merged;
 }
 
+// チェックボックスは自動チェックのみで、手動操作は無効化
+// この関数は後方互換性のため残していますが、実際には使用されません
 export async function updateScheduleItemChecked(
   itemId: string,
   checked: boolean
 ): Promise<void> {
-  // LocalStorageを更新（シンプルな方法）
+  // 自動チェック機能のため、手動での更新は無効
+  // 代わりに自動チェックを実行
   const data = loadScheduleDataFromLocalStorage();
   if (!data) return;
-
-  // 該当アイテムを検索して更新
-  for (const date of data.schedule) {
-    const item = date.items.find((i) => i.id === itemId);
-    if (item) {
-      // チェック状態を更新（シンプルにON/OFF）
-      item.checked = checked;
-      data.lastUpdated = new Date().toISOString();
-      saveScheduleDataToLocalStorage(data);
-      
-      // データ更新を通知（同タブ内での再読込トリガー用）
-      try {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('schedule-updated'));
-        }
-      } catch {}
-
-      // オンラインの場合はAPIに同期（バックグラウンドで実行、エラーは無視）
-      if (isOnline()) {
-        updateScheduleItemCheckedApi(itemId, checked).catch((error) => {
-          console.warn('Failed to sync check status to API:', error);
-        });
+  
+  // 自動チェックを実行（日時が経過していれば自動的にON）
+  const autoCheckedData = autoCheckScheduleItems(data);
+  if (autoCheckedData !== data) {
+    saveScheduleDataToLocalStorage(autoCheckedData);
+    
+    // データ更新を通知
+    try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('schedule-updated'));
       }
-      return;
+    } catch {}
+    
+    // オンラインの場合はAPIに同期（バックグラウンドで実行、エラーは無視）
+    if (isOnline()) {
+      // 変更されたアイテムをAPIに同期
+      for (const date of autoCheckedData.schedule) {
+        for (const item of date.items) {
+          const oldItem = data.schedule
+            .find(d => d.date === date.date)
+            ?.items.find(i => i.id === item.id);
+          if (oldItem && oldItem.checked !== item.checked) {
+            updateScheduleItemCheckedApi(item.id, item.checked).catch((error) => {
+              console.warn('Failed to sync check status to API:', error);
+            });
+          }
+        }
+      }
     }
   }
 }
