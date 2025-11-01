@@ -12,7 +12,7 @@ const SCHEDULE_STORAGE_KEY = 'amami-schedule';
 const PENDING_SYNC_KEY = 'amami-schedule-pending-sync';
 
 // LocalStorageの保存（フォールバック用）
-function saveScheduleDataToLocalStorage(data: ScheduleData): void {
+export function saveScheduleDataToLocalStorage(data: ScheduleData): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(data));
@@ -91,6 +91,44 @@ export function loadScheduleDataSync(): ScheduleData | null {
   return loadScheduleDataFromLocalStorage();
 }
 
+// データマージ関数: LocalStorageの変更を優先して、APIデータとマージ
+export function mergeScheduleData(
+  localData: ScheduleData,
+  apiData: ScheduleData
+): ScheduleData {
+  // APIデータをベースにコピー
+  const merged: ScheduleData = {
+    ...apiData,
+    schedule: apiData.schedule.map(date => ({
+      ...date,
+      items: date.items.map(apiItem => {
+        // LocalStorageの対応するアイテムを探す
+        const localDate = localData.schedule.find(d => d.date === date.date);
+        const localItem = localDate?.items.find(i => i.id === apiItem.id);
+        
+        // LocalStorageにアイテムがあり、より新しい場合はLocalStorageの値を優先
+        if (localItem) {
+          // チェック状態はLocalStorageを優先（ユーザーが操作した変更を保持）
+          // その他の情報（位置情報など）はAPIデータを優先
+          return {
+            ...apiItem,
+            checked: localItem.checked,
+          };
+        }
+        
+        return apiItem;
+      }),
+    })),
+  };
+  
+  // lastUpdatedはより新しい方を採用
+  const localTime = new Date(localData.lastUpdated).getTime();
+  const apiTime = new Date(apiData.lastUpdated).getTime();
+  merged.lastUpdated = localTime > apiTime ? localData.lastUpdated : apiData.lastUpdated;
+  
+  return merged;
+}
+
 export async function updateScheduleItemChecked(
   itemId: string,
   checked: boolean
@@ -111,10 +149,12 @@ export async function updateScheduleItemChecked(
       if (isOnline()) {
         try {
           await updateScheduleItemCheckedApi(itemId, checked);
-          // 成功したら最新データを取得（他の端末からの更新も含む）
+          // APIに送信後、最新データを取得してマージ（自分の変更を優先）
           const latestData = await fetchScheduleData();
           if (latestData) {
-            saveScheduleDataToLocalStorage(latestData);
+            // LocalStorageの変更を優先してマージ
+            const mergedData = mergeScheduleData(data, latestData);
+            saveScheduleDataToLocalStorage(mergedData);
           }
         } catch (error) {
           console.warn('Failed to sync check status to API:', error);

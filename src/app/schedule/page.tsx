@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ScheduleDate } from '@/components/schedule/ScheduleDate';
 import { initialScheduleData } from '@/lib/data';
-import { loadScheduleData, saveScheduleData, resetAllScheduleItems, calculateProgress, loadScheduleDataSync } from '@/lib/storage';
+import { loadScheduleData, saveScheduleData, resetAllScheduleItems, calculateProgress, loadScheduleDataSync, mergeScheduleData, saveScheduleDataToLocalStorage } from '@/lib/storage';
 import { ScheduleData } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
@@ -67,12 +67,18 @@ export default function SchedulePage() {
       }
     };
 
-    // ページが表示された時に最新データを取得
+    // ページが表示された時に最新データを取得（マージ）
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         try {
+          const saved = loadScheduleDataSync();
           const latest = await loadScheduleData();
-          if (latest) {
+          if (latest && saved) {
+            // LocalStorageの変更を優先してマージ
+            const merged = mergeScheduleData(saved, latest);
+            setScheduleData(merged);
+            saveScheduleDataToLocalStorage(merged);
+          } else if (latest) {
             setScheduleData(latest);
           }
         } catch (error) {
@@ -81,11 +87,17 @@ export default function SchedulePage() {
       }
     };
 
-    // ウィンドウフォーカス時に最新データを取得
+    // ウィンドウフォーカス時に最新データを取得（マージ）
     const handleFocus = async () => {
       try {
+        const saved = loadScheduleDataSync();
         const latest = await loadScheduleData();
-        if (latest) {
+        if (latest && saved) {
+          // LocalStorageの変更を優先してマージ
+          const merged = mergeScheduleData(saved, latest);
+          setScheduleData(merged);
+          saveScheduleDataToLocalStorage(merged);
+        } else if (latest) {
           setScheduleData(latest);
         }
       } catch (error) {
@@ -101,12 +113,21 @@ export default function SchedulePage() {
     // ポーリングで最新データを取得（5秒ごと）
     const pollInterval = setInterval(async () => {
       try {
+        const saved = loadScheduleDataSync();
         const latest = await loadScheduleData();
         if (latest) {
           // データが変更されているかチェック（lastUpdatedを比較）
           if (latest.lastUpdated !== lastUpdatedRef.current) {
             lastUpdatedRef.current = latest.lastUpdated;
-            setScheduleData(latest);
+            // LocalStorageの変更を優先してマージ
+            if (saved) {
+              const merged = mergeScheduleData(saved, latest);
+              setScheduleData(merged);
+              saveScheduleDataToLocalStorage(merged);
+              lastUpdatedRef.current = merged.lastUpdated;
+            } else {
+              setScheduleData(latest);
+            }
           }
         }
       } catch (error) {
@@ -129,10 +150,18 @@ export default function SchedulePage() {
     if (saved) {
       setScheduleData({ ...saved });
     }
-    // バックグラウンドでAPIから最新データを取得（他の端末からの更新も含む）
+    // バックグラウンドでAPIから最新データを取得し、現在のデータとマージ
+    // （自分の変更を優先するため、即座に上書きしない）
     try {
       const latest = await loadScheduleData();
-      if (latest) {
+      if (latest && saved) {
+        // 現在のLocalStorageデータとAPIデータをマージ（LocalStorageのチェック状態を優先）
+        const merged = mergeScheduleData(saved, latest);
+        setScheduleData(merged);
+        // LocalStorageにも保存
+        saveScheduleDataToLocalStorage(merged);
+      } else if (latest) {
+        // savedがない場合は最新データをそのまま使用
         setScheduleData(latest);
       }
     } catch (error) {
