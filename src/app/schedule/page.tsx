@@ -42,13 +42,94 @@ export default function SchedulePage() {
     setProgress(prog);
   }, [scheduleData]);
 
+  // ポーリングとイベントリスナーを設定
+  const lastUpdatedRef = React.useRef<string>(scheduleData.lastUpdated);
+  
+  React.useEffect(() => {
+    // lastUpdatedを最新の値に更新
+    lastUpdatedRef.current = scheduleData.lastUpdated;
+  }, [scheduleData.lastUpdated]);
+
+  React.useEffect(() => {
+    // LocalStorage変更イベント（同タブ内）
+    const handleScheduleUpdate = () => {
+      const saved = loadScheduleDataSync();
+      if (saved) {
+        setScheduleData({ ...saved });
+      }
+    };
+
+    // Storageイベント（他のタブからの変更）
+    const handleStorageChange = () => {
+      const saved = loadScheduleDataSync();
+      if (saved) {
+        setScheduleData({ ...saved });
+      }
+    };
+
+    // ページが表示された時に最新データを取得
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const latest = await loadScheduleData();
+          if (latest) {
+            setScheduleData(latest);
+          }
+        } catch (error) {
+          console.warn('Failed to sync on visibility change:', error);
+        }
+      }
+    };
+
+    // ウィンドウフォーカス時に最新データを取得
+    const handleFocus = async () => {
+      try {
+        const latest = await loadScheduleData();
+        if (latest) {
+          setScheduleData(latest);
+        }
+      } catch (error) {
+        console.warn('Failed to sync on focus:', error);
+      }
+    };
+
+    window.addEventListener('schedule-updated', handleScheduleUpdate);
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // ポーリングで最新データを取得（5秒ごと）
+    const pollInterval = setInterval(async () => {
+      try {
+        const latest = await loadScheduleData();
+        if (latest) {
+          // データが変更されているかチェック（lastUpdatedを比較）
+          if (latest.lastUpdated !== lastUpdatedRef.current) {
+            lastUpdatedRef.current = latest.lastUpdated;
+            setScheduleData(latest);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to poll latest data:', error);
+      }
+    }, 5000); // 5秒ごと
+
+    return () => {
+      window.removeEventListener('schedule-updated', handleScheduleUpdate);
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(pollInterval);
+    };
+  }, []); // マウント時のみ設定
+
   const handleItemChange = async () => {
     // チェック状態が変更されたら再読み込み（同期版を使用して即座に反映）
     const saved = loadScheduleDataSync();
     if (saved) {
       setScheduleData({ ...saved });
     }
-    // バックグラウンドでAPIから最新データを取得
+    // バックグラウンドでAPIから最新データを取得（他の端末からの更新も含む）
     try {
       const latest = await loadScheduleData();
       if (latest) {

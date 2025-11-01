@@ -41,8 +41,39 @@ export function ProgressSection() {
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('schedule-updated', handleScheduleUpdate);
+
+    // ページが表示された時に最新データを取得
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const latest = await loadScheduleData();
+          if (latest) {
+            const prog = calculateProgress(latest);
+            setProgress(prog);
+          }
+        } catch (error) {
+          console.warn('Failed to sync on visibility change:', error);
+        }
+      }
+    };
+
+    // ウィンドウフォーカス時に最新データを取得
+    const handleFocus = async () => {
+      try {
+        const latest = await loadScheduleData();
+        if (latest) {
+          const prog = calculateProgress(latest);
+          setProgress(prog);
+        }
+      } catch (error) {
+        console.warn('Failed to sync on focus:', error);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
     
-    // ポーリングで最新データを取得（30秒ごと）
+    // ポーリングで最新データを取得（5秒ごと）
     const pollInterval = setInterval(async () => {
       try {
         const latest = await loadScheduleData();
@@ -53,11 +84,13 @@ export function ProgressSection() {
       } catch (error) {
         console.warn('Failed to poll latest data:', error);
       }
-    }, 30000); // 30秒
+    }, 5000); // 5秒ごと
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('schedule-updated', handleScheduleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       clearInterval(pollInterval);
     };
   }, []);
