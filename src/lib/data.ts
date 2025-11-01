@@ -104,8 +104,8 @@ export const initialScheduleData: ScheduleData = {
         {
           id: 'item-2',
           time: '7:30',
-          activity: '離陸',
-          note: '',
+          activity: '離陸 JAL103便（羽田→伊丹）',
+          note: 'JAL103便 7:50→8:40',
           checked: false,
           location: {
             name: '羽田空港',
@@ -120,7 +120,7 @@ export const initialScheduleData: ScheduleData = {
           id: 'item-3',
           time: '8:40',
           activity: '大阪伊丹空港着',
-          note: '',
+          note: 'JAL103便（羽田→伊丹）7:50→8:40',
           checked: false,
           location: {
             name: '大阪国際空港（伊丹空港）',
@@ -134,7 +134,7 @@ export const initialScheduleData: ScheduleData = {
           id: 'item-4',
           time: '9:55',
           activity: '大阪伊丹空港発',
-          note: '',
+          note: 'JAL2465便（伊丹→奄美大島）9:55→11:40',
           checked: false,
           location: {
             name: '大阪国際空港（伊丹空港）',
@@ -147,8 +147,8 @@ export const initialScheduleData: ScheduleData = {
         {
           id: 'item-5',
           time: '11:55',
-          activity: '奄美大島空港',
-          note: '',
+          activity: '奄美大島空港着',
+          note: 'JAL2465便（伊丹→奄美大島）9:55→11:40',
           checked: false,
           location: {
             name: '奄美大島空港',
@@ -503,9 +503,9 @@ export const initialScheduleData: ScheduleData = {
         },
         {
           id: 'item-29',
-          time: '14:30',
-          activity: '羽田空港へ離陸',
-          note: '',
+          time: '11:40',
+          activity: '奄美大島空港発 JAL658便',
+          note: 'JAL658便（奄美大島→羽田）11:40→16:25',
           checked: false,
           location: {
             name: '奄美大島空港',
@@ -519,7 +519,7 @@ export const initialScheduleData: ScheduleData = {
           id: 'item-30',
           time: '16:25',
           activity: '羽田空港着 お疲れさまでした',
-          note: '',
+          note: 'JAL658便（奄美大島→羽田）11:40→16:25',
           checked: false,
           location: {
             name: '羽田空港',
