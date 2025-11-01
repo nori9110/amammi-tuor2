@@ -257,7 +257,7 @@ export async function updateScheduleItemChecked(
   // 代わりに自動チェックを実行して反映
   const data = loadScheduleDataFromLocalStorage();
   if (!data) return;
-  
+
   // 自動チェックを実行（日時が経過していれば自動的にON）
   const autoCheckedData = autoCheckScheduleItems(data);
   if (autoCheckedData !== data) {

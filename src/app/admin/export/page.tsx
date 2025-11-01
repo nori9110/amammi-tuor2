@@ -10,24 +10,24 @@ export default function ExportPage() {
   React.useEffect(() => {
     const loadData = async () => {
       const data = await loadScheduleData();
-      if (data) {
-        const json = JSON.stringify(data, null, 2);
-        setRawJson(json);
+    if (data) {
+      const json = JSON.stringify(data, null, 2);
+      setRawJson(json);
 
-        const snippet = `export const initialScheduleData: ScheduleData = ${JSON.stringify(
-          {
-            schedule: data.schedule,
-            lastUpdated: new Date().toISOString(),
-            version: data.version ?? 1,
-          },
-          null,
-          2
-        )};`;
-        setInitialDataSnippet(snippet);
-      } else {
-        setRawJson('// localStorage にスケジュールがありません。ページを一度操作して保存してください。');
-        setInitialDataSnippet('// 同上');
-      }
+      const snippet = `export const initialScheduleData: ScheduleData = ${JSON.stringify(
+        {
+          schedule: data.schedule,
+          lastUpdated: new Date().toISOString(),
+          version: data.version ?? 1,
+        },
+        null,
+        2
+      )};`;
+      setInitialDataSnippet(snippet);
+    } else {
+      setRawJson('// localStorage にスケジュールがありません。ページを一度操作して保存してください。');
+      setInitialDataSnippet('// 同上');
+    }
     };
     loadData();
   }, []);

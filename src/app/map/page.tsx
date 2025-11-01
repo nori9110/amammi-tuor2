@@ -23,13 +23,13 @@ export default function MapPage() {
   React.useEffect(() => {
     const loadData = async () => {
       const saved = await loadScheduleData();
-      if (!saved) {
-        // 初回は初期データを保存して以降の更新が永続化されるようにする
+    if (!saved) {
+      // 初回は初期データを保存して以降の更新が永続化されるようにする
         await saveScheduleData(initialScheduleData);
-        setPoints(extractLocationPoints(initialScheduleData));
-      } else {
-        setPoints(extractLocationPoints(saved));
-      }
+      setPoints(extractLocationPoints(initialScheduleData));
+    } else {
+      setPoints(extractLocationPoints(saved));
+    }
     };
     loadData();
 

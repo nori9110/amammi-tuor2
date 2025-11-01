@@ -14,9 +14,9 @@ export function ProgressSection() {
     // LocalStorageからデータを読み込んで進捗を計算（マージ済みデータを使用）
     const loadData = async () => {
       const saved = await loadScheduleData(); // 既にマージ処理を含んでいる
-      const data = saved || initialScheduleData;
-      const prog = calculateProgress(data);
-      setProgress(prog);
+    const data = saved || initialScheduleData;
+    const prog = calculateProgress(data);
+    setProgress(prog);
     };
     loadData();
   }, []);
