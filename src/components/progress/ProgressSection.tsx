@@ -68,47 +68,59 @@ export function ProgressSection() {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('schedule-updated', handleScheduleUpdate);
 
-    // ページが表示された時に最新データを取得（マージ済み）
+    // ページが表示された時に最新データを取得
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          const latest = await loadScheduleData(); // 既にマージ処理を含んでいる
-          if (latest) {
-            const prog = calculateProgress(latest);
+          const latest = await loadScheduleData();
+          const data = latest || initialScheduleData;
+          const prog = calculateProgress(data);
+          if (prog.total > 0 || prog.completed === 0) {
             setProgress(prog);
           }
         } catch (error) {
           console.warn('Failed to sync on visibility change:', error);
+          // エラー時は初期データを使用
+          const prog = calculateProgress(initialScheduleData);
+          setProgress(prog);
         }
       }
     };
 
-    // ウィンドウフォーカス時に最新データを取得（マージ済み）
+    // ウィンドウフォーカス時に最新データを取得
     const handleFocus = async () => {
       try {
-        const latest = await loadScheduleData(); // 既にマージ処理を含んでいる
-        if (latest) {
-          const prog = calculateProgress(latest);
+        const latest = await loadScheduleData();
+        const data = latest || initialScheduleData;
+        const prog = calculateProgress(data);
+        if (prog.total > 0 || prog.completed === 0) {
           setProgress(prog);
         }
       } catch (error) {
         console.warn('Failed to sync on focus:', error);
+        // エラー時は初期データを使用
+        const prog = calculateProgress(initialScheduleData);
+        setProgress(prog);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     
-    // ポーリングで最新データを取得（5秒ごと、マージ済み）
+    // ポーリングで最新データを取得（5秒ごと）
     const pollInterval = setInterval(async () => {
       try {
-        const latest = await loadScheduleData(); // 既にマージ処理を含んでいる
-        if (latest) {
-          const prog = calculateProgress(latest);
+        const latest = await loadScheduleData();
+        const data = latest || initialScheduleData;
+        const prog = calculateProgress(data);
+        if (prog.total > 0 || prog.completed === 0) {
           setProgress(prog);
         }
       } catch (error) {
         console.warn('Failed to poll latest data:', error);
+        // エラー時は初期データを使用
+        const prog = calculateProgress(initialScheduleData);
+        setProgress(prog);
       }
     }, 5000); // 5秒ごと
 
@@ -123,10 +135,18 @@ export function ProgressSection() {
 
   const handleReset = async () => {
     if (confirm('全ての進捗をリセットしますか？')) {
-      await resetAllScheduleItems();
-      const saved = await loadScheduleData();
-      if (saved) {
-        const prog = calculateProgress(saved);
+      try {
+        await resetAllScheduleItems();
+        const saved = await loadScheduleData();
+        const data = saved || initialScheduleData;
+        const prog = calculateProgress(data);
+        if (prog.total > 0 || prog.completed === 0) {
+          setProgress(prog);
+        }
+      } catch (error) {
+        console.error('Failed to reset schedule items:', error);
+        // エラー時も初期データで進捗を更新
+        const prog = calculateProgress(initialScheduleData);
         setProgress(prog);
       }
     }
